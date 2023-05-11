@@ -17,3 +17,15 @@ sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjo
 ```bash
 sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/3965b2bdf1de4b774f6b976bfab990db4044537f/ansiblecloudinit-manoj.sh)'
 ```
+
+## for chinmay 
+
+```bash
+sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/e945984144142a2728dc66ad2977fa2e165617ee/ansiblecloudinit-chinmay.sh)'
+```
+
+## for sujoy 
+
+```bash
+sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/e945984144142a2728dc66ad2977fa2e165617ee/ansiblecloudinit-sujoy.sh)'
+```
