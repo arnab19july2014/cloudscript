@@ -1,31 +1,31 @@
 # debian install script
 
-## for user tanu 
+## for user tanu
 
 ```bash
-sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/da65140d66ae41db5991843a67abbc6d4fdc614e/ansiblecloudinit-tanu.sh)'
+sudo -H -u root bash -c '/bin/bash <(curl -s https://raw.githubusercontent.com/arnab19july2014/cloudscript/master/ansiblecloudinit-tanu.sh)'
 ```
 
-## for user ci 
+## for user ci
 
 ```bash
-sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/da65140d66ae41db5991843a67abbc6d4fdc614e/ansiblecloudinit-ciuser.sh)'
+sudo -H -u root bash -c '/bin/bash <(curl -s https://raw.githubusercontent.com/arnab19july2014/cloudscript/master/ansiblecloudinit-ciuser.sh)'
 ```
 
-## for manoj 
+## for manoj
 
 ```bash
-sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/3965b2bdf1de4b774f6b976bfab990db4044537f/ansiblecloudinit-manoj.sh)'
+sudo -H -u root bash -c '/bin/bash <(curl -s https://raw.githubusercontent.com/arnab19july2014/cloudscript/master/ansiblecloudinit-manoj.sh)'
 ```
 
-## for chinmay 
+## for chinmay
 
 ```bash
-sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/e945984144142a2728dc66ad2977fa2e165617ee/ansiblecloudinit-chinmay.sh)'
+sudo -H -u root bash -c '/bin/bash <(curl -s https://raw.githubusercontent.com/arnab19july2014/cloudscript/master/ansiblecloudinit-chinmay.sh)'
 ```
 
-## for sujoy 
+## for sujoy
 
 ```bash
-sudo -H -u root bash -c '/bin/bash <(curl -s https://bitbucket.org/arnabcollarjobs/cloudscript/raw/e945984144142a2728dc66ad2977fa2e165617ee/ansiblecloudinit-sujoy.sh)'
+sudo -H -u root bash -c '/bin/bash <(curl -s https://raw.githubusercontent.com/arnab19july2014/cloudscript/master/ansiblecloudinit-sujoy.sh)'
 ```
