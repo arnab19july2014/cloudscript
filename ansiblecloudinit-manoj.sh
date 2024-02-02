@@ -27,9 +27,9 @@ sudo sed -i '/^127.0.1.1/d' /etc/hosts
 echo "127.0.1.1 ${CLOUD_INIT_HOSTNAME} ${CLOUD_INIT_HOSTNAME}.${CLOUD_INIT_DOMAINNAME}" | sudo tee -a /etc/hosts
 sudo hostnamectl set-hostname "${CLOUD_INIT_HOSTNAME}"
 
-sudo apt upgrade -y
+sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y
 
-sudo apt install -y \
+sudo DEBIAN_FRONTEND=noninteractive apt install -y \
     zip unzip net-tools build-essential tar wget curl ca-certificates sudo \
     systemd telnet gnupg2 apt-transport-https lsb-release software-properties-common \
     locales systemd-timesyncd network-manager gnupg2 gnupg pigz cron acl \
@@ -39,10 +39,10 @@ sudo apt install -y \
 
 if [[ $(apt-cache search "linux-headers-$(uname -r)") ]]; then
     echo "installing linux-headers-$(uname -r)"
-    sudo apt-get install -y "linux-headers-$(uname -r)"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-headers-$(uname -r)"
 else
     echo "installing linux-headers"
-    sudo apt-get install -y "linux-headers"
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-headers"
 fi
 
 getent group "${CLOUD_INIT_GROUPNAME}" || sudo groupadd "${CLOUD_INIT_GROUPNAME}"
@@ -67,6 +67,7 @@ sudo systemctl enable --now ufw
 sudo systemctl restart ufw
 
 sudo -H -u "${CLOUD_INIT_USERNAME}" bash -c 'set -ex && \
+  export DEBIAN_FRONTEND=noninteractive && \
   export PATH="${HOME}/.local/bin:${PATH}" && \
   deactivate || true && \
   mkdir -p "${HOME}/.tmp" && \
