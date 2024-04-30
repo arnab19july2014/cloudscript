@@ -1,86 +1,109 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 
-sudo apt update
-
-if ! command -v sudo &>/dev/null; then
-  apt install sudo -y
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Please run as root"
+    exit 1
 fi
 
+export DEBIAN_FRONTEND=noninteractive
+export CLOUD_INIT_COPY_ROOT_SSH_KEYS=${CLOUD_INIT_COPY_ROOT_SSH_KEYS:-false}
 export CLOUD_INIT_GROUPNAME=${CLOUD_INIT_GROUPNAME:-cloudinit}
 export CLOUD_INIT_USERNAME=${CLOUD_INIT_USERNAME:-chinmay}
 export CLOUD_INIT_USE_SSHPUBKEY=${CLOUD_INIT_USE_SSHPUBKEY:-'ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDeFCj/Y2q8K1f5Yn3wQHorIthildSq6fzOizZChRidgYIHwTA4ROkfYiDTmo8UjKz6iOrAFDR5+f6Ykv7dGlTk= ecdsa-key-20230511'}
+export CLOUD_INIT_IS_DEV_MACHINE=${CLOUD_INIT_IS_DEV_MACHINE:-false}
+export DEFAULT_ROLES_PATH="/tmp/cloudinit/roles"
+export ANSIBLE_ROLES_PATH="${DEFAULT_ROLES_PATH}"
+export ANSIBLE_COLLECTIONS_PATH="/tmp/cloudinit/collections"
+
+if [[ ! "${CLOUD_INIT_COPY_ROOT_SSH_KEYS}" =~ ^true|false$ ]]; then
+    echo "CLOUD_INIT_COPY_ROOT_SSH_KEYS must be a boolean (true|false)"
+    exit 1
+fi
+
+if [ -n "${LINODE_ID}" ]; then
+    export CLOUD_INIT_COPY_ROOT_SSH_KEYS=true
+fi
 
 if [ "$(hostname)" = 'localhost' ]; then
-    CLOUD_INIT_HOSTNAME=${CLOUD_INIT_HOSTNAME:-cloudvm}
+    export CLOUD_INIT_HOSTNAME=${CLOUD_INIT_HOSTNAME:-cloudvm}
 else
     CLOUD_INIT_HOSTNAME=$(hostname)
+    export CLOUD_INIT_HOSTNAME
 fi
 
 if [ "$(domainname)" = '(none)' ]; then
-    CLOUD_INIT_DOMAINNAME=${CLOUD_INIT_DOMAINNAME:-clouddomain}
+    export CLOUD_INIT_DOMAINNAME=${CLOUD_INIT_DOMAINNAME:-clouddomain}
 else
     CLOUD_INIT_DOMAINNAME=$(domainname)
+    export CLOUD_INIT_DOMAINNAME
 fi
 
-sudo sed -i '/^127.0.1.1/d' /etc/hosts
-echo "127.0.1.1 ${CLOUD_INIT_HOSTNAME} ${CLOUD_INIT_HOSTNAME}.${CLOUD_INIT_DOMAINNAME}" | sudo tee -a /etc/hosts
-sudo hostnamectl set-hostname "${CLOUD_INIT_HOSTNAME}"
-
-sudo DEBIAN_FRONTEND=noninteractive apt upgrade -y
-
-sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-    zip unzip net-tools build-essential tar wget curl ca-certificates sudo \
-    systemd telnet gnupg2 apt-transport-https lsb-release software-properties-common \
-    locales systemd-timesyncd network-manager gnupg2 gnupg pigz cron acl \
-    ufw vim python3-venv git fontconfig gtk-update-icon-cache libnss3 libatk1.0-0 libatk-bridge2.0-0 libgtk-3-0 \
-    bzip2 libgbm-dev libglib2.0-dev libdrm-dev libasound2 jq zsh libcap2-bin ntfs-3g exfat-fuse vim neovim \
-    openssh-client openssh-server openssh-sftp-server rsync
-
-if [[ $(apt-cache search "linux-headers-$(uname -r)") ]]; then
-    echo "installing linux-headers-$(uname -r)"
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-headers-$(uname -r)"
-else
-    echo "installing linux-headers"
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "linux-headers"
+if [[ ! "${CLOUD_INIT_IS_DEV_MACHINE}" =~ ^true|false$ ]]; then
+    echo "CLOUD_INIT_IS_DEV_MACHINE must be a boolean (true|false)"
+    exit 1
 fi
 
-getent group "${CLOUD_INIT_GROUPNAME}" || sudo groupadd "${CLOUD_INIT_GROUPNAME}"
+apt update
+apt install -y git python3-venv python3-pip
 
-id -u "${CLOUD_INIT_USERNAME}" &>/dev/null ||
-    sudo /sbin/useradd -m -d /home/"${CLOUD_INIT_USERNAME}" -g "${CLOUD_INIT_GROUPNAME}" -s /bin/zsh "${CLOUD_INIT_USERNAME}"
+deactivate || true
+export CLOUD_INIT_ANSIBLE_DIR="/tmp/cloudinit"
+rm -rf "${CLOUD_INIT_ANSIBLE_DIR}"
 
-sudo mkdir -p /home/"${CLOUD_INIT_USERNAME}"/.ssh
+mkdir -p "${CLOUD_INIT_ANSIBLE_DIR}" "${DEFAULT_ROLES_PATH}" "${ANSIBLE_COLLECTIONS_PATH}"
+python3 -m venv "${CLOUD_INIT_ANSIBLE_DIR}/venv"
+# shellcheck source=/dev/null
+source "${CLOUD_INIT_ANSIBLE_DIR}/venv/bin/activate"
+pip install ansible --upgrade
+ansible-galaxy collection install git+https://github.com/arpanrec/arpanrec.nebula.git,feature/inprogress -f
 
-echo "${CLOUD_INIT_USE_SSHPUBKEY}" | sudo tee -a /home/"${CLOUD_INIT_USERNAME}"/.ssh/authorized_keys
+tee "${CLOUD_INIT_ANSIBLE_DIR}/hosts.yml" <<EOF >/dev/null
+all:
+    children:
+        server_workspace:
+            hosts:
+                localhost:
+            vars:
+                ansible_user: "${CLOUD_INIT_USERNAME}"
+                ansible_become: false
+        cloudinit:
+            hosts:
+                localhost:
+            vars:
+                ansible_user: root
+                ansible_become: false
+                pv_cloud_init_username: "${CLOUD_INIT_USERNAME}"
+                pv_cloud_init_is_dev_machine: "${CLOUD_INIT_IS_DEV_MACHINE}"
+                pv_cloud_init_groupname: "${CLOUD_INIT_GROUPNAME}"
+                pv_cloud_init_hostname: "${CLOUD_INIT_HOSTNAME}"
+                pv_cloud_init_domainname: ${CLOUD_INIT_DOMAINNAME}
+                pv_cloud_init_user_ssh_public_key: ${CLOUD_INIT_USE_SSHPUBKEY}
+    hosts:
+        localhost:
+            ansible_connection: local
+            ansible_python_interpreter: /usr/bin/python3
+EOF
 
-sudo chown "${CLOUD_INIT_USERNAME}":"${CLOUD_INIT_GROUPNAME}" -R /home/"${CLOUD_INIT_USERNAME}"/.ssh
-sudo chmod 700 /home/"${CLOUD_INIT_USERNAME}"/.ssh
-sudo chmod 600 /home/"${CLOUD_INIT_USERNAME}"/.ssh/authorized_keys
+ansible-playbook -i "${CLOUD_INIT_ANSIBLE_DIR}/hosts.yml" arpanrec.nebula.cloudinit
 
-sudo mkdir -p /etc/sudoers.d/
-sudo su -c 'echo "%'"${CLOUD_INIT_GROUPNAME}"' ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/010-cloudinit'
+deactivate
 
-sudo ufw allow OpenSSH
-sudo ufw --force enable
-sudo systemctl enable --now ufw
-sudo systemctl restart ufw
+chown -R "${CLOUD_INIT_USERNAME}:${CLOUD_INIT_GROUPNAME}" "${CLOUD_INIT_ANSIBLE_DIR}"
 
-sudo -H -u "${CLOUD_INIT_USERNAME}" bash -c 'set -e && \
-  export DEBIAN_FRONTEND=noninteractive && \
-  export PATH="${HOME}/.local/bin:${PATH}" && \
-  deactivate || true && \
-  mkdir -p "${HOME}/.tmp" && \
-  rm -rf "${HOME}/.tmp/venv" && \
-  python3 -m venv "${HOME}/.tmp/venv" && \
-  source "${HOME}/.tmp/venv/bin/activate" && \
-  pip install ansible --upgrade && \
-  ansible-galaxy collection install git+https://github.com/arpanrec/arpanrec.nebula.git -f && \
-  ansible-galaxy role install git+https://github.com/geerlingguy/ansible-role-docker.git,,geerlingguy.docker -f && \
-  mkdir "${HOME}/.tmp/cloudinit" -p && \
-  echo "[local]" > "${HOME}/.tmp/cloudinit/inv" && \
-  echo "localhost ansible_connection=local" >> "${HOME}/.tmp/cloudinit/inv" && \
-  ansible-playbook -i "${HOME}/.tmp/cloudinit/inv" --extra-vars "pv_cloud_username=$(whoami)" arpanrec.nebula.cloudinit && \
-  ansible-playbook -i "${HOME}/.tmp/cloudinit/inv" arpanrec.nebula.server_workspace --tags all && \
-  git --git-dir="$HOME/.dotfiles" --work-tree=$HOME reset --hard HEAD
-  '
+sudo DEFAULT_ROLES_PATH="${DEFAULT_ROLES_PATH}" \
+    CLOUD_INIT_IS_DEV_MACHINE="${CLOUD_INIT_IS_DEV_MACHINE}" \
+    ANSIBLE_ROLES_PATH="${ANSIBLE_ROLES_PATH}" \
+    ANSIBLE_COLLECTIONS_PATH="${ANSIBLE_COLLECTIONS_PATH}" \
+    CLOUD_INIT_ANSIBLE_DIR="${CLOUD_INIT_ANSIBLE_DIR}" \
+    -H -u "${CLOUD_INIT_USERNAME}" bash -c '
+    set -ex
+    source "${CLOUD_INIT_ANSIBLE_DIR}/venv/bin/activate"
+    if [ "${CLOUD_INIT_IS_DEV_MACHINE}" = true ]; then
+        ansible-playbook -i "${CLOUD_INIT_ANSIBLE_DIR}/hosts.yml" arpanrec.nebula.server_workspace --tags all
+    else
+        ansible-playbook -i "${CLOUD_INIT_ANSIBLE_DIR}/hosts.yml" arpanrec.nebula.server_workspace \
+            --tags all --skip-tags java,go,terraform,vault,nodejs
+    fi
+    git --git-dir="${HOME}/.dotfiles" --work-tree="${HOME}" reset --hard HEAD
+'
