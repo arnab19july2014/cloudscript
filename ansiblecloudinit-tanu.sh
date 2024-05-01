@@ -4,6 +4,11 @@ set -ex
 export CLOUD_INIT_USER=${CLOUD_INIT_USER:-tanu}
 export CLOUD_INIT_USE_SSH_PUB=${CLOUD_INIT_USE_SSH_PUB:-'ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJE/WjGM4bsFSgQCIW516dHLn6qNo5R+YP0SN6YF0It1EN4MKifzPQ7oI7oQtfW+0FgYpNH7rL41RPb82vmswdk= arnab@boenci.com'}
 
+if [ "${HOME}" != "/root" ]; then
+    echo "HOME is not set to /root"
+    exit 1
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 export CLOUD_INIT_COPY_ROOT_SSH_KEYS=${CLOUD_INIT_COPY_ROOT_SSH_KEYS:-false}
 export CLOUD_INIT_GROUP=${CLOUD_INIT_GROUP:-cloudinit}
