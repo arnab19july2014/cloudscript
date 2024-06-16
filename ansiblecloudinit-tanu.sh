@@ -106,7 +106,9 @@ sudo -E -H -u "${CLOUD_INIT_USER}" bash -c '
     else
         ansible-playbook arpanrec.nebula.server_workspace --tags all --skip-tags java,go,terraform,vault,nodejs
     fi
-    bash <(curl -s https://raw.githubusercontent.com/arpanrec/dotfiles/main/.script.d/dotfiles-setup.sh) -s -k \
-        install_dotfiles -r https://github.com/arpanrec/dotfiles.git -o ~/.dotfiles -b main -c \
-        backup_dotfiles -o ~/dotfiles-backup-$(date +%Y%m%d%H%M%S)
+
+    rm -rf "${HOME}/.dotfiles"
+    git clone --bare https://github.com/arpanrec/dotfiles.git "${HOME}/.dotfiles"
+    git --git-dir="${HOME}/.dotfiles" --work-tree="${HOME}" config --local status.showUntrackedFiles no
+    git --git-dir="${HOME}/.dotfiles" --work-tree="${HOME}" checkout main --force
 '
