@@ -53,19 +53,30 @@ if [ "${CLOUD_INIT_COPY_ROOT_SSH_KEYS}" = true ] && [ -f "/root/.ssh/authorized_
 fi
 
 apt update
-apt install -y python3-venv python3-pip
+apt install -y python3-venv python3-pip git curl ca-certificates gnupg tar unzip wget
+
 python3 -m venv "${CLOUD_INIT_ANSIBLE_DIR}/venv"
+
 # shellcheck source=/dev/null
 source "${CLOUD_INIT_ANSIBLE_DIR}/venv/bin/activate"
-pip install ansible --upgrade
 
-# ansible-galaxy collection install arpanrec.nebula:5.0.2
+pip3 install --upgrade pip
+pip3 install setuptools-rust wheel setuptools --upgrade
+pip3 install ansible cryptography requests hvac --upgrade
 
-apt install -y git
-ansible-galaxy collection install git+https://github.com/arpanrec/arpanrec.nebula.git,1.0.1 -f
-ansible-galaxy role install git+https://github.com/geerlingguy/ansible-role-docker.git,7.1.0,geerlingguy.docker -f
+ansible-galaxy collection install git+https://github.com/arpanrec/arpanrec.nebula.git,1.0.1
+
+ansible-galaxy collection install git+https://github.com/ansible-collections/community.general.git,9.4.0
+ansible-galaxy collection install git+https://github.com/ansible-collections/community.crypto.git,2.22.0
+ansible-galaxy collection install git+https://github.com/ansible-collections/amazon.aws.git,8.2.1
+ansible-galaxy collection install git+https://github.com/ansible-collections/community.docker.git,3.12.1
+ansible-galaxy collection install git+https://github.com/ansible-collections/ansible.posix.git,1.6.0
+ansible-galaxy collection install git+https://github.com/kewlfft/ansible-aur.git,v0.11.1
+
+ansible-galaxy role install git+https://github.com/geerlingguy/ansible-role-docker.git,7.4.1,geerlingguy.docker
 
 tee "${ANSIBLE_INVENTORY}" <<EOF >/dev/null
+---
 all:
     children:
         server_workspace:
@@ -89,7 +100,7 @@ all:
     hosts:
         localhost:
             ansible_connection: local
-            ansible_python_interpreter: /usr/bin/python3
+            ansible_python_interpreter: "$(which python3)"
 EOF
 
 ansible-playbook arpanrec.nebula.cloudinit
@@ -99,16 +110,16 @@ deactivate
 chown -R "${CLOUD_INIT_USER}:${CLOUD_INIT_GROUP}" "${CLOUD_INIT_ANSIBLE_DIR}"
 
 sudo -E -H -u "${CLOUD_INIT_USER}" bash -c '
-    set -e
+    set -euo pipefail
+
     source "${CLOUD_INIT_ANSIBLE_DIR}/venv/bin/activate"
+
     if [ "${CLOUD_INIT_IS_DEV_MACHINE}" = true ]; then
         ansible-playbook arpanrec.nebula.server_workspace --tags all
     else
-        ansible-playbook arpanrec.nebula.server_workspace --tags all --skip-tags java,go,terraform,vault,nodejs
+        ansible-playbook arpanrec.nebula.server_workspace --tags all \
+            --skip-tags java,go,terraform,vault,nodejs,bws,pulumi
     fi
 
-    rm -rf "${HOME}/.dotfiles"
-    git clone --bare https://github.com/arpanrec/dotfiles.git "${HOME}/.dotfiles"
-    git --git-dir="${HOME}/.dotfiles" --work-tree="${HOME}" config --local status.showUntrackedFiles no
-    git --git-dir="${HOME}/.dotfiles" --work-tree="${HOME}" checkout main --force
+    bash <(curl https://raw.githubusercontent.com/arpanrec/dotfiles/main/.script.d/dot-install.sh)
 '
